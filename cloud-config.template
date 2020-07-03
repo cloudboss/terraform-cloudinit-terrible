@@ -1,0 +1,47 @@
+#cloud-config
+
+write_files:
+%{ if ansible_config != "" ~}
+  - path: /etc/ansible/ansible.cfg
+    owner: root:root
+    permissions: '0644'
+    content: ${ansible_config_esc}
+%{ endif ~}
+%{ if length(ansible_requirements) != 0 ~}
+  - path: /etc/ansible/requirements.yml
+    owner: root:root
+    permissions: '0644'
+    content: |
+      ${ansible_requirements_esc}
+%{ endif ~}
+%{ if length(python_requirements) != 0 ~}
+  - path: /etc/ansible/python-requirements.txt
+    owner: root:root
+    permissions: '0644'
+    content: ${python_requirements_esc}
+%{ endif ~}
+  - path: /etc/ansible/vars.yml
+    owner: root:root
+    permissions: '0644'
+    content: |
+      ${ansible_variables}
+  - path: /etc/ansible/playbook.yml
+    owner: root:root
+    permissions: '0644'
+    content: |
+      - hosts: localhost
+        connection: local
+        vars_files: [/etc/ansible/vars.yml]
+        roles: ${ansible_playbook_roles}
+
+runcmd:
+%{ if create_ansible_directory ~}
+  - ${python} -m venv ${ansible_directory}
+%{ endif ~}
+%{ if length(python_requirements) != 0 ~}
+  - ${ansible_directory}/bin/pip install -r /etc/ansible/python-requirements.txt
+%{ endif ~}
+%{ if length(ansible_requirements) != 0 ~}
+  - ${ansible_directory}/bin/ansible-galaxy install -r /etc/ansible/requirements.yml -p /etc/ansible/roles
+%{ endif ~}
+  - ${ansible_environment}${ansible_directory}/bin/ansible-playbook /etc/ansible/playbook.yml
